@@ -1,0 +1,25 @@
+{
+  "name": "كأس العالم 2026 — مدير البطولة",
+  "short_name": "مونديال 2026",
+  "description": "تطبيق إدارة نتائج كأس العالم 2026: 48 فريقًا، 12 مجموعة، 32 متأهلًا. يعمل دون إنترنت.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f5f9ff",
+  "theme_color": "#0055a4",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "lang": "ar",
+  "dir": "rtl"
+}

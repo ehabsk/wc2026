@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>كأس العالم 2026 — إدارة النتائج والتأهل</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0055a4">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="كأس العالم 2026">
+
+<script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('✅ SW registered:', reg.scope))
+          .catch(err => console.error('❌ SW registration failed:', err));
+    });
+    }
+  </script>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+    }
+    body {
+      margin: 0;
+      padding: 15px;
+      background-color: #f5f9ff;
+      color: #333;
+      line-height: 1.5;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 20px;
+      background: #0055a4;
+      color: white;
+      padding: 18px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    nav {
+      text-align: center;
+      margin: 15px 0;
+    }
+    nav button {
+      padding: 10px 16px;
+      margin: 0 4px;
+      font-size: 15px;
+      border: none;
+      border-radius: 6px;
+      background: #0055a4;
+      color: white;
+      cursor: pointer;
+    }
+    nav button:hover { background: #003d7a; }
+    nav button.active { background: #0088cc; }
+
+    .ctrl-btn {
+      padding: 8px 12px;
+      margin: 0 4px;
+      font-size: 14px;
+      border: none;
+      border-radius: 6px;
+      background: #4285f4;
+      color: white;
+      cursor: pointer;
+    }
+    .ctrl-btn:hover { background: #3367d6; }
+    #btnClear { background: #d32f2f; }
+    #btnClear:hover { background: #b71c1c; }
+    #btnSimulate { background: #00796b; }
+    #btnSimulate:hover { background: #004d40; }
+    #btnNotify { background: #f57c00; }
+    #btnNotify:hover { background: #ef6c00; }
+
+    #statusMsg {
+      position: fixed; top: 15px; left: 50%; transform: translateX(-50%);
+      z-index: 1000;
+      padding: 10px 20px;
+      border-radius: 6px;
+      color: white;
+      font-weight: bold;
+      background: #1b5e20;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      display: none;
+    }
+
+    #groupsView, #knockoutView, #knockoutTreeView {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .group-card {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      margin-bottom: 25px;
+      overflow: hidden;
+    }
+    .group-header {
+      background: #1b5e20;
+      color: white;
+      padding: 12px 20px;
+      font-weight: bold;
+      font-size: 1.2em;
+    }
+    .matches-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .matches-table th, .matches-table td {
+      padding: 10px;
+      text-align: center;
+      border-bottom: 1px solid #eee;
+    }
+    .matches-table input {
+      width: 40px;
+      padding: 4px;
+      text-align: center;
+      border: 1px solid #aaa;
+      border-radius: 4px;
+    }
+    .matches-table tr:hover { background-color: #f9f9f9; }
+
+    .standings-table {
+      width: 100%;
+      margin-top: 15px;
+      border-collapse: collapse;
+    }
+    .standings-table th {
+      background: #e0e0e0;
+    }
+    .standings-table td, .standings-table th {
+      padding: 10px;
+      text-align: center;
+      border: 1px solid #ddd;
+    }
+    .rank-1 { background-color: #d4edda; font-weight: bold; }
+    .rank-2 { background-color: #fff3cd; }
+    .rank-3 { background-color: #d1ecf1; }
+
+    .qualified-section {
+      margin-bottom: 30px;
+    }
+    .qualified-section h3 {
+      border-bottom: 2px solid #0055a4;
+      padding-bottom: 5px;
+      color: #0055a4;
+    }
+    .qualified-section ul {
+      list-style: none;
+      padding: 0;
+    }
+    .qualified-section li {
+      background: #e3f2fd;
+      margin: 5px 0;
+      padding: 8px 15px;
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    #knockoutSVG {
+      width: 100%;
+      min-height: 900px;
+      background: #fafafa;
+      border-radius: 8px;
+      margin-top: 20px;
+      overflow: auto;
+    }
+
+    @media (max-width: 768px) {
+      .matches-table th:nth-child(2),
+      .matches-table td:nth-child(2) {
+        display: none;
+      }
+      .matches-table th, .matches-table td {
+        padding: 6px;
+        font-size: 14px;
+      }
+      .standings-table th:nth-child(3),
+      .standings-table td:nth-child(3) {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="statusMsg"></div>
+
+  <header>
+    <h1>كأس العالم 2026 — إدارة النتائج والتأهل</h1>
+    <p>48 فريقًا • 12 مجموعة • 32 متأهلاً</p>
+    <div id="controls" style="text-align:center;margin:15px 0;font-size:0.95em;">
+      <button id="btnClear" class="ctrl-btn">🗑️ مسح الكل</button>
+      <button id="btnExport" class="ctrl-btn">📤 تصدير JSON</button>
+      <button id="btnImport" class="ctrl-btn">📥 استيراد JSON</button>
+      <button id="btnSimulate" class="ctrl-btn">🎲 محاكاة تلقائية</button>
+      <button id="btnNotify" class="ctrl-btn">🔔 تفعيل الإشعارات</button>
+      <button id="btnLang" class="ctrl-btn">العربية</button>
+      <span id="lastSaved"></span>
+    </div>
+  </header>
+
+  <main>
+    <nav>
+      <button id="btnGroups">المجموعات</button>
+      <button id="btnKnockout">المتأهلون</button>
+      <button id="btnKnockoutTree">شجرة خروج المغلوب</button>
+    </nav>
+
+    <div id="groupsView">
+      <h2>المجموعات</h2>
+      <div id="groupsContainer"></div>
+    </div>
+
+    <div id="knockoutView" style="display:none;">
+      <h2>المتأهلون إلى مرحلة خروج المغلوب (32 فريقًا)</h2>
+      <div class="qualified-section">
+        <h3>أوائل المجموعات (12)</h3>
+        <ul id="winnersList"></ul>
+      </div>
+      <div class="qualified-section">
+        <h3>وصافو المجموعات (12)</h3>
+        <ul id="runnersUpList"></ul>
+      </div>
+      <div class="qualified-section">
+        <h3>أفضل 8 ثوالث</h3>
+        <ul id="thirdsList"></ul>
+        <div id="thirdsCriteria"></div>
+      </div>
+    </div>
+
+    <div id="knockoutTreeView" style="display:none;">
+      <h2 id="knockoutTitle">مرحلة خروج المغلوب — 32 فريقًا</h2>
+      <div id="knockoutSVG"></div>
+    </div>
+  </main>
+
+  <script>
+    // 🌍 الترجمات
+    const translations = {
+      ar: {
+        title: "كأس العالم 2026 — إدارة النتائج والتأهل",
+        groups: "المجموعات",
+        knockout: "المتأهلون",
+        knockoutTree: "شجرة خروج المغلوب",
+        clear: "🗑️ مسح الكل",
+        export: "📤 تصدير JSON",
+        import: "📥 استيراد JSON",
+        simulate: "🎲 محاكاة تلقائية",
+        language: "اللغة: عربي",
+        lastSaved: "آخر حفظ",
+        winners: "أوائل المجموعات (12)",
+        runnersUp: "وصافو المجموعات (12)",
+        bestThirds: "أفضل 8 ثوالث",
+        criteria: "المعايير: <strong>النقاط</strong> → <strong>فارق الأهداف</strong> → <strong>الأهداف المسجلة</strong>.",
+        qualifiedCount: "عدد الثوالث المؤهلة: <strong>{{count}} من أصل 12</strong>.",
+        noData: "ℹ️ لم تُوجد بيانات محفوظة — حالة أولية",
+        saved: "✓ تمت مزامنة البيانات",
+        loaded: "✓ تم تحميل {{count}} نتيجة من الحفظ الأخير ({{time}})",
+        cleared: "🗑️ تم مسح جميع البيانات",
+        exported: "✓ تم التصدير",
+        imported: "✓ تم الاستيراد",
+        qualifiedAlert: "🎉 تمت معايرة 32 فريقًا متأهلًا إلى خروج المغلوب!",
+        knockoutTitle: "مرحلة خروج المغلوب — 32 فريقًا",
+        roundOf32: "دور الـ 32",
+        notificationsDenied: "❌ الإشعارات معطّلة. فعّلها في إعدادات المتصفح.",
+        enableNotifications: "🔔 تفعيل الإشعارات"
+      },
+      en: {
+        title: "FIFA World Cup 2026 — Results & Qualification Manager",
+        groups: "Groups",
+        knockout: "Qualified Teams",
+        knockoutTree: "Knockout Tree",
+        clear: "🗑️ Clear All",
+        export: "📤 Export JSON",
+        import: "📥 Import JSON",
+        simulate: "🎲 Auto-Simulate",
+        language: "Language: English",
+        lastSaved: "Last saved",
+        winners: "Group Winners (12)",
+        runnersUp: "Runners-up (12)",
+        bestThirds: "Best 8 Third-Placed Teams",
+        criteria: "Criteria: <strong>Points</strong> → <strong>Goal Difference</strong> → <strong>Goals Scored</strong>.",
+        qualifiedCount: "<strong>{{count}} out of 12</strong> third-placed teams qualified.",
+        noData: "ℹ️ No saved data found — initial state",
+        saved: "✓ Data synchronized",
+        loaded: "✓ Loaded {{count}} results from last save ({{time}})",
+        cleared: "🗑️ All data cleared",
+        exported: "✓ Exported",
+        imported: "✓ Imported",
+        qualifiedAlert: "🎉 32 teams qualified for the knockout stage!",
+        knockoutTitle: "Knockout Stage — 32 Teams",
+        roundOf32: "Round of 32",
+        notificationsDenied: "❌ Notifications disabled. Enable in browser settings.",
+        enableNotifications: "🔔 Enable Notifications"
+      }
+    };
+
+    let currentLang = localStorage.getItem('wc2026_lang') || 'ar';
+
+    function t(key, params = {}) {
+      let str = translations[currentLang][key] || key;
+      Object.entries(params).forEach(([k, v]) => {
+        str = str.replace(new RegExp(`{{${k}}}`, 'g'), v);
+      });
+      return str;
+    }
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      localStorage.setItem('wc2026_lang', lang);
+      document.documentElement.lang = lang;
+      document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+      renderAll();
+    }
+
+    // ⚽ قوة الفرق (للمحاكاة)
+    const teamStrength = {
+      "المكسيك": 7, "جنوب أفريقيا": 5, "كوريا الجنوبية": 7, 
+      "الفائز من المسار الرابع في الملحق الأوروبي": 5,
+      "كندا": 6, "الفائز من المسار الأول في الملحق الأوروبي": 6, "قطر": 5, "سويسرا": 8,
+      "البرازيل": 10, "المغرب": 7, "هايتي": 3, "اسكتلندا": 6,
+      "الولايات المتحدة": 7, "باراغواي": 5, "أستراليا": 5, 
+      "الفائز من المسار الثالث في الملحق الأوروبي": 5,
+      "ألمانيا": 9, "كوراساو": 4, "ساحل العاج": 6, "الإكوادور": 6,
+      "هولندا": 9, "اليابان": 8, "الفائز من المسار الثاني في الملحق الأوروبي": 6, "تونس": 6,
+      "بلجيكا": 8, "مصر": 6, "إيران": 6, "نيوزيلندا": 4,
+      "إسبانيا": 9, "الرأس الأخضر": 5, "السعودية": 5, "أوروغواي": 8,
+      "فرنسا": 10, "السنغال": 7, "الفائز من المسار الثاني في الملحق العالمي": 4, "النرويج": 7,
+      "الأرجنتين": 10, "الجزائر": 6, "النمسا": 7, "الأردن": 5,
+      "البرتغال": 9, "الفائز من المسار الأول في الملحق العالمي": 4, "أوزبكستان": 5, "كولومبيا": 7,
+      "إنجلترا": 9, "كرواتيا": 8, "غانا": 5, "بنما": 4
+    };
+
+    // 🎲 محاكاة نتيجة مباراة
+    function simulateMatch(team1, team2) {
+      const s1 = teamStrength[team1] || 5;
+      const s2 = teamStrength[team2] || 5;
+      const avg1 = 1.5 + s1 / 10;
+      const avg2 = 1.5 + s2 / 10;
+      let score1 = Math.max(0, Math.round(avg1 + (Math.random() - 0.5) * 2));
+      let score2 = Math.max(0, Math.round(avg2 + (Math.random() - 0.5) * 2));
+      if (score1 === score2 && Math.random() < 0.6) {
+        if (s1 > s2) score1++;
+        else if (s2 > s1) score2++;
+        else score1 += Math.random() > 0.5 ? 1 : 0;
+      }
+      return [score1, score2];
+    }
+
+    // 📅 المجموعات
+    const groupsData = {
+      A: ["المكسيك", "جنوب أفريقيا", "كوريا الجنوبية", "الفائز من المسار الرابع في الملحق الأوروبي"],
+      B: ["كندا", "الفائز من المسار الأول في الملحق الأوروبي", "قطر", "سويسرا"],
+      C: ["البرازيل", "المغرب", "هايتي", "اسكتلندا"],
+      D: ["الولايات المتحدة", "باراغواي", "أستراليا", "الفائز من المسار الثالث في الملحق الأوروبي"],
+      E: ["ألمانيا", "كوراساو", "ساحل العاج", "الإكوادور"],
+      F: ["هولندا", "اليابان", "الفائز من المسار الثاني في الملحق الأوروبي", "تونس"],
+      G: ["بلجيكا", "مصر", "إيران", "نيوزيلندا"],
+      H: ["إسبانيا", "الرأس الأخضر", "السعودية", "أوروغواي"],
+      I: ["فرنسا", "السنغال", "الفائز من المسار الثاني في الملحق العالمي", "النرويج"],
+      J: ["الأرجنتين", "الجزائر", "النمسا", "الأردن"],
+      K: ["البرتغال", "الفائز من المسار الأول في الملحق العالمي", "أوزبكستان", "كولومبيا"],
+      L: ["إنجلترا", "كرواتيا", "غانا", "بنما"]
+    };
+
+    function generateMatches(teams) {
+      const matches = [];
+      for (let i = 0; i < 4; i++) {
+        for (let j = i + 1; j < 4; j++) {
+          matches.push({ team1: teams[i], team2: teams[j], score1: "", score2: "" });
+        }
+      }
+      return matches;
+    }
+
+    // 🗂️ هيكل البطولة
+    const tournamentData = {};
+    Object.entries(groupsData).forEach(([key, teams], idx) => {
+      const groupName = `المجموعة ${String.fromCharCode(65 + idx)}`;
+      tournamentData[groupName] = {
+        teams: teams,
+        matches: generateMatches(teams)
+      };
+    });
+
+    // 🧠 حساب جدول الترتيب
+    function calculateStandings(matches, teams) {
+      const stats = {};
+      teams.forEach(team => {
+        stats[team] = { 
+          team: team,
+          played: 0,
+          won: 0,
+          drawn: 0,
+          lost: 0,
+          gf: 0,
+          ga: 0,
+          gd: 0,
+          points: 0
+        };
+      });
+
+      matches.forEach(m => {
+        if (m.score1 === "" || m.score2 === "") return;
+        const s1 = parseInt(m.score1), s2 = parseInt(m.score2);
+        const t1 = stats[m.team1], t2 = stats[m.team2];
+
+        t1.played++; t2.played++;
+        t1.gf += s1; t2.gf += s2;
+        t1.ga += s2; t2.ga += s1;
+        t1.gd = t1.gf - t1.ga;
+        t2.gd = t2.gf - t2.ga;
+
+        if (s1 > s2) {
+          t1.won++; t1.points += 3;
+          t2.lost++;
+        } else if (s2 > s1) {
+          t2.won++; t2.points += 3;
+          t1.lost++;
+        } else {
+          t1.drawn++; t1.points += 1;
+          t2.drawn++; t2.points += 1;
+        }
+      });
+
+      return Object.values(stats)
+        .sort((a, b) => {
+          if (b.points !== a.points) return b.points - a.points;
+          if (b.gd !== a.gd) return b.gd - a.gd;
+          if (b.gf !== a.gf) return b.gf - a.gf;
+          return a.team.localeCompare(b.team, 'ar');
+        })
+        .map((team, i) => ({ ...team, rank: i + 1 }));
+    }
+
+    // 💾 حفظ في localStorage
+    function saveToStorage() {
+      try {
+        const dataToSave = {};
+        for (const [group, info] of Object.entries(tournamentData)) {
+          dataToSave[group] = {
+            matches: info.matches.map(m => ({
+              team1: m.team1,
+              team2: m.team2,
+              score1: m.score1 === "" ? null : m.score1,
+              score2: m.score2 === "" ? null : m.score2
+            }))
+          };
+        }
+        localStorage.setItem('worldCup2026_data', JSON.stringify(dataToSave));
+        const time = new Date().toLocaleString(currentLang === 'ar' ? 'ar-EG' : 'en-US');
+        localStorage.setItem('worldCup2026_lastSaved', time);
+        updateStatus(t('saved'));
+      } catch (e) {
+        updateStatus("⚠ خطأ في الحفظ", true);
+      }
+    }
+
+    // 📥 تحميل من localStorage
+    function loadFromStorage() {
+      try {
+        const saved = localStorage.getItem('worldCup2026_data');
+        if (!saved) return false;
+
+        const data = JSON.parse(saved);
+        let loaded = 0;
+        for (const [group, info] of Object.entries(data)) {
+          if (tournamentData[group]) {
+            tournamentData[group].matches.forEach((match, idx) => {
+              const savedMatch = info.matches[idx];
+              if (savedMatch) {
+                match.score1 = savedMatch.score1 === null ? "" : savedMatch.score1;
+                match.score2 = savedMatch.score2 === null ? "" : savedMatch.score2;
+                loaded++;
+              }
+            });
+          }
+        }
+        if (loaded > 0) {
+          const time = localStorage.getItem('worldCup2026_lastSaved') || '---';
+          updateStatus(t('loaded', { count: loaded, time: time }));
+          return true;
+        }
+      } catch (e) {
+        console.error("Load error:", e);
+      }
+      return false;
+    }
+
+    // 🗑️ مسح
+    function clearStorage() {
+      if (confirm("هل أنت متأكد من مسح جميع النتائج؟ لا يمكن التراجع.")) {
+        localStorage.removeItem('worldCup2026_data');
+        localStorage.removeItem('worldCup2026_lastSaved');
+        Object.entries(groupsData).forEach(([key, teams], idx) => {
+          const groupName = `المجموعة ${String.fromCharCode(65 + idx)}`;
+          tournamentData[groupName].matches = generateMatches(teams);
+        });
+        renderGroupsView();
+        updateStatus(t('cleared'));
+      }
+    }
+
+    // 📤 تصدير
+    function exportData() {
+      try {
+        const dataStr = JSON.stringify({
+          timestamp: new Date().toISOString(),
+          app: "WC2026 Manager",
+          data: tournamentData
+        }, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `wc2026-backup-${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+        updateStatus(t('exported'));
+      } catch (e) {
+        alert("فشل التصدير: " + e.message);
+      }
+    }
+
+    // 📥 استيراد
+    function importData() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+          try {
+            const content = JSON.parse(ev.target.result);
+            if (content.data && typeof content.data === 'object') {
+              Object.keys(tournamentData).forEach(group => {
+                if (content.data[group] && content.data[group].matches) {
+                  tournamentData[group].matches = content.data[group].matches.map(m => ({
+                    team1: m.team1,
+                    team2: m.team2,
+                    score1: m.score1 === null || m.score1 === "" ? "" : m.score1,
+                    score2: m.score2 === null || m.score2 === "" ? "" : m.score2
+                  }));
+                }
+              });
+              renderGroupsView();
+              saveToStorage();
+              updateStatus(t('imported'));
+            } else {
+              throw new Error("هيكل الملف غير صالح");
+            }
+          } catch (err) {
+            alert("فشل الاستيراد: " + err.message);
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    }
+
+    // 🎲 محاكاة
+    function runSimulation() {
+      if (!confirm("تشغيل محاكاة لجميع المباريات؟ سيتم استبدال النتائج الحالية.")) return;
+
+      Object.entries(tournamentData).forEach(([group, data]) => {
+        data.matches.forEach(m => {
+          if (m.score1 === "" && m.score2 === "") {
+            const [s1, s2] = simulateMatch(m.team1, m.team2);
+            m.score1 = s1;
+            m.score2 = s2;
+          }
+        });
+      });
+
+      saveToStorage();
+      renderGroupsView();
+      updateStatus("🎲 اكتملت المحاكاة!");
+    }
+
+    // 🔔 إشعارات
+    async function requestNotificationPermission() {
+      if (!("Notification" in window)) {
+        updateStatus("❌ المتصفح لا يدعم الإشعارات", true);
+        return;
+      }
+
+      let permission = Notification.permission;
+      if (permission === "default") {
+        permission = await Notification.requestPermission();
+      }
+
+      if (permission === "granted") {
+        updateStatus("🔔 الإشعارات مفعّلة الآن");
+      } else {
+        updateStatus(t('notificationsDenied'), true);
+      }
+    }
+
+    // 📢 إشعار عند التأهل
+    function checkAndNotifyQualification() {
+      const { winners, runnersUp, topThirds } = calculateQualifiers();
+      if (winners.length === 12 && runnersUp.length === 12 && topThirds.length === 8) {
+        if (Notification.permission === "granted") {
+          new Notification(t('qualifiedAlert'), {
+            icon: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/2026_FIFA_World_Cup.svg/320px-2026_FIFA_World_Cup.svg.png",
+            body: currentLang === 'ar' ? "32 فريقًا جاهزون لمرحلة خروج المغلوب!" : "32 teams ready for knockout stage!"
+          });
+        }
+      }
+    }
+
+    // 🏆 حساب المتأهلين
+    function calculateQualifiers() {
+      const allThirds = [];
+      const winners = [], runnersUp = [];
+      Object.entries(tournamentData).forEach(([groupName, data]) => {
+        const standings = calculateStandings(data.matches, data.teams);
+        winners.push({ team: standings[0].team, group: groupName });
+        runnersUp.push({ team: standings[1].team, group: groupName });
+        if (standings[2]) {
+          allThirds.push({
+            team: standings[2].team,
+            group: groupName,
+            ...standings[2]
+          });
+        }
+      });
+
+      const sortedThirds = allThirds.sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        if (b.gd !== a.gd) return b.gd - a.gd;
+        if (b.gf !== a.gf) return b.gf - a.gf;
+        return a.team.localeCompare(b.team, 'ar');
+      }).slice(0, 8);
+
+      return { winners, runnersUp, topThirds: sortedThirds, allThirds };
+    }
+
+    // 👁️ عرض المجموعات
+    function renderGroupsView() {
+      const container = document.getElementById('groupsContainer');
+      container.innerHTML = '';
+
+      Object.entries(tournamentData).forEach(([groupName, data]) => {
+        const standings = calculateStandings(data.matches, data.teams);
+        
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'group-card';
+        groupDiv.innerHTML = `
+          <div class="group-header">${groupName}</div>
+          <table class="matches-table">
+            <thead><tr><th>الفريق</th><th></th><th>الفريق</th><th>النتيجة</th></tr></thead>
+            <tbody id="matches-${groupName.replace(/ /g, '_')}"></tbody>
+          </table>
+          <table class="standings-table">
+            <thead><tr><th>#</th><th>الفريق</th><th>لعب</th><th>فاز</th><th>تعادل</th><th>خسر</th><th>له</th><th>عليه</th><th>الفارق</th><th>النقاط</th></tr></thead>
+            <tbody id="standings-${groupName.replace(/ /g, '_')}"></tbody>
+          </table>
+        `;
+        container.appendChild(groupDiv);
+
+        const matchesTbody = groupDiv.querySelector(`#matches-${groupName.replace(/ /g, '_')}`);
+        data.matches.forEach((m, idx) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${m.team1}</td>
+            <td>—</td>
+            <td>${m.team2}</td>
+            <td>
+              <input type="number" min="0" class="score-input" data-group="${groupName}" data-match="${idx}" data-team="1" value="${m.score1}">
+              -
+              <input type="number" min="0" class="score-input" data-group="${groupName}" data-match="${idx}" data-team="2" value="${m.score2}">
+            </td>
+          `;
+          matchesTbody.appendChild(row);
+        });
+
+        const standingsTbody = groupDiv.querySelector(`#standings-${groupName.replace(/ /g, '_')}`);
+        standings.forEach((t, i) => {
+          const tr = document.createElement('tr');
+          tr.className = 
+            i === 0 ? 'rank-1' : 
+            i === 1 ? 'rank-2' : 
+            i === 2 ? 'rank-3' : '';
+          tr.innerHTML = `
+            <td>${t.rank}</td>
+            <td>${t.team}</td>
+            <td>${t.played}</td>
+            <td>${t.won}</td>
+            <td>${t.drawn}</td>
+            <td>${t.lost}</td>
+            <td>${t.gf}</td>
+            <td>${t.ga}</td>
+            <td>${t.gd}</td>
+            <td><strong>${t.points}</strong></td>
+          `;
+          standingsTbody.appendChild(tr);
+        });
+      });
+
+      document.querySelectorAll('.score-input').forEach(input => {
+        input.addEventListener('input', function() {
+          const group = this.dataset.group;
+          const matchIdx = parseInt(this.dataset.match);
+          const teamIdx = this.dataset.team === '1' ? 'score1' : 'score2';
+          const val = this.value === '' ? '' : parseInt(this.value);
+          tournamentData[group].matches[matchIdx][teamIdx] = val;
+          saveToStorage();
+          renderGroupsView();
+          checkAndNotifyQualification();
+        });
+      });
+    }
+
+    // 👁️ عرض المتأهلين
+    function renderKnockoutView() {
+      const { winners, runnersUp, topThirds } = calculateQualifiers();
+      
+      document.getElementById('winnersList').innerHTML = 
+        winners.map(w => `<li>${w.team} <small>(${w.group})</small></li>`).join('');
+      document.getElementById('runnersUpList').innerHTML = 
+        runnersUp.map(r => `<li>${r.team} <small>(${r.group})</small></li>`).join('');
+      document.getElementById('thirdsList').innerHTML = 
+        topThirds.map(t => `<li>${t.team} <small>(${t.group}) — ${t.points} نقطة, فارق: ${t.gd}</small></li>`).join('');
+
+      document.getElementById('thirdsCriteria').innerHTML = `
+        <small>${t('criteria')}</small>
+        <p>${t('qualifiedCount', { count: topThirds.length })}</p>
+      `;
+    }
+
+    // 🎯 رسم شجرة خروج المغلوب (SVG)
+    function renderKnockoutSVG() {
+      const svgContainer = document.getElementById('knockoutSVG');
+      const { winners, runnersUp, topThirds } = calculateQualifiers();
+      const teams32 = [
+        ...winners.map(w => w.team),
+        ...runnersUp.map(r => r.team),
+        ...topThirds.map(t => t.team)
+      ];
+
+      if (teams32.length !== 32) {
+        svgContainer.innerHTML = `<p style="text-align:center;padding:40px;color:#666;">${t('qualifiedAlert').replace('🎉', '')}</p>`;
+        return;
+      }
+
+      const width = 1000;
+      const height = 1100;
+      const svgNS = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(svgNS, "svg");
+      svg.setAttribute("width", "100%");
+      svg.setAttribute("height", height);
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+      svg.innerHTML = `<style>
+        .team { font: bold 14px sans-serif; fill: #222; }
+        .vs { font: 500 13px sans-serif; fill: #555; }
+        .match-line { stroke: #888; stroke-width: 1; }
+        .round-label { font: bold 16px sans-serif; fill: #0055a4; }
+      </style>`;
+
+      const xStart = 80;
+      const yStart = 60;
+      const yStep = 70;
+
+      // رسم 16 مباراة (32 فريقًا)
+      for (let i = 0; i < 16; i++) {
+        const y = yStart + i * yStep;
+        const team1 = teams32[i * 2] || "TBD";
+        const team2 = teams32[i * 2 + 1] || "TBD";
+
+        // الفريق 1
+        const t1 = document.createElementNS(svgNS, "text");
+        t1.setAttribute("x", xStart);
+        t1.setAttribute("y", y);
+        t1.setAttribute("class", "team");
+        t1.textContent = team1;
+        svg.appendChild(t1);
+
+        // vs
+        const vs = document.createElementNS(svgNS, "text");
+        vs.setAttribute("x", xStart + 220);
+        vs.setAttribute("y", y + 15);
+        vs.setAttribute("text-anchor", "middle");
+        vs.setAttribute("class", "vs");
+        vs.textContent = "vs";
+        svg.appendChild(vs);
+
+        // الفريق 2
+        const t2 = document.createElementNS(svgNS, "text");
+        t2.setAttribute("x", xStart);
+        t2.setAttribute("y", y + 30);
+        t2.setAttribute("class", "team");
+        t2.textContent = team2;
+        svg.appendChild(t2);
+
+        // خط أفقي
+        const h1 = document.createElementNS(svgNS, "line");
+        h1.setAttribute("x1", xStart + 200);
+        h1.setAttribute("y1", y);
+        h1.setAttribute("x2", xStart + 240);
+        h1.setAttribute("y2", y);
+        h1.setAttribute("class", "match-line");
+        svg.appendChild(h1);
+
+        const h2 = document.createElementNS(svgNS, "line");
+        h2.setAttribute("x1", xStart + 200);
+        h2.setAttribute("y1", y + 30);
+        h2.setAttribute("x2", xStart + 240);
+        h2.setAttribute("y2", y + 30);
+        h2.setAttribute("class", "match-line");
+        svg.appendChild(h2);
+
+        // خط عمودي
+        const v = document.createElementNS(svgNS, "line");
+        v.setAttribute("x1", xStart + 220);
+        v.setAttribute("y1", y);
+        v.setAttribute("x2", xStart + 220);
+        v.setAttribute("y2", y + 30);
+        v.setAttribute("class", "match-line");
+        svg.appendChild(v);
+
+        // الفائز ( placeholder )
+        const winner = document.createElementNS(svgNS, "circle");
+        winner.setAttribute("cx", xStart + 280);
+        winner.setAttribute("cy", y + 15);
+        winner.setAttribute("r", 10);
+        winner.setAttribute("fill", "none");
+        winner.setAttribute("stroke", "#aaa");
+        winner.setAttribute("stroke-dasharray", "4,2");
+        svg.appendChild(winner);
+      }
+
+      // عناوين الأدوار
+      const title = document.createElementNS(svgNS, "text");
+      title.setAttribute("x", width / 2);
+      title.setAttribute("y", 30);
+      title.setAttribute("text-anchor", "middle");
+      title.setAttribute("class", "round-label");
+      title.textContent = t('roundOf32');
+      svg.appendChild(title);
+
+      svgContainer.innerHTML = '';
+      svgContainer.appendChild(svg);
+    }
+
+    // 🖼️ عرض شجرة خروج المغلوب
+    function renderKnockoutTreeView() {
+      document.getElementById('knockoutTitle').textContent = t('knockoutTitle');
+      renderKnockoutSVG();
+    }
+
+    // 📢 رسالة حالة
+    function updateStatus(message, isError = false) {
+      const statusDiv = document.getElementById('statusMsg');
+      statusDiv.textContent = message;
+      statusDiv.style.background = isError ? '#d32f2f' : '#1b5e20';
+      statusDiv.style.display = 'block';
+      setTimeout(() => { statusDiv.style.display = 'none'; }, 4000);
+    }
+
+    // 🔁 إعادة رسم الواجهة
+    function renderAll() {
+      document.title = t('title');
+      document.querySelector('h1').textContent = t('title');
+      document.querySelector('p').textContent = currentLang === 'ar' ? 
+        "48 فريقًا • 12 مجموعة • 32 متأهلاً" : 
+        "48 Teams • 12 Groups • 32 Qualified";
+
+      // تحديث أزرار
+      document.getElementById('btnGroups').textContent = t('groups');
+      document.getElementById('btnKnockout').textContent = t('knockout');
+      document.getElementById('btnKnockoutTree').textContent = t('knockoutTree');
+      document.getElementById('btnClear').innerHTML = t('clear');
+      document.getElementById('btnExport').innerHTML = t('export');
+      document.getElementById('btnImport').innerHTML = t('import');
+      document.getElementById('btnSimulate').innerHTML = t('simulate');
+      document.getElementById('btnNotify').innerHTML = t('enableNotifications');
+      document.getElementById('btnLang').textContent = currentLang === 'ar' ? "English" : "العربية";
+
+      const lastTime = localStorage.getItem('worldCup2026_lastSaved');
+      document.getElementById('lastSaved').textContent = lastTime ? 
+        `${t('lastSaved')}: ${lastTime}` : '';
+
+      // عرض الحالة الحالية
+      if (document.getElementById('knockoutView').style.display === 'block') {
+        renderKnockoutView();
+      } else if (document.getElementById('knockoutTreeView').style.display === 'block') {
+        renderKnockoutTreeView();
+      } else {
+        renderGroupsView();
+      }
+    }
+
+    // 🔄 أحداث الأزرار
+    function setupEventListeners() {
+      document.getElementById('btnGroups').onclick = () => showView('groups');
+      document.getElementById('btnKnockout').onclick = () => showView('knockout');
+      document.getElementById('btnKnockoutTree').onclick = () => showView('tree');
+      document.getElementById('btnClear').onclick = clearStorage;
+      document.getElementById('btnExport').onclick = exportData;
+      document.getElementById('btnImport').onclick = importData;
+      document.getElementById('btnSimulate').onclick = runSimulation;
+      document.getElementById('btnNotify').onclick = requestNotificationPermission;
+      document.getElementById('btnLang').onclick = () => {
+        setLanguage(currentLang === 'ar' ? 'en' : 'ar');
+      };
+    }
+
+    function showView(view) {
+      document.getElementById('groupsView').style.display = view === 'groups' ? 'block' : 'none';
+      document.getElementById('knockoutView').style.display = view === 'knockout' ? 'block' : 'none';
+      document.getElementById('knockoutTreeView').style.display = view === 'tree' ? 'block' : 'none';
+      
+      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+      if (view === 'groups') document.getElementById('btnGroups').classList.add('active');
+      if (view === 'knockout') document.getElementById('btnKnockout').classList.add('active');
+      if (view === 'tree') document.getElementById('btnKnockoutTree').classList.add('active');
+
+      if (view === 'tree') renderKnockoutTreeView();
+      if (view === 'knockout') renderKnockoutView();
+    }
+
+    // 🚀 بدء التشغيل
+    document.addEventListener('DOMContentLoaded', () => {
+      const loaded = loadFromStorage();
+      if (!loaded) updateStatus(t('noData'), true);
+      
+      renderAll();
+      setupEventListeners();
+      showView('groups');
+    });
+
+    // ----------------------------------------------
+    // 📲 كود PWA وزر التثبيت المضاف
+    // ----------------------------------------------
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      // أضف زر في الواجهة
+      const installBtn = document.createElement('button');
+      installBtn.textContent = '📲 تثبيت كتطبيق';
+      installBtn.style.cssText = `
+        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+        background: #0088cc; color: white; border: none; padding: 10px 20px;
+        border-radius: 30px; font-size: 16px; cursor: pointer; z-index: 1000;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      `;
+      installBtn.onclick = () => {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(choice => {
+          if (choice.outcome === 'accepted') {
+            updateStatus('✅ تم التثبيت! افتح التطبيق من الشاشة الرئيسية.');
+          }
+          installBtn.remove();
+        });
+      };
+      document.body.appendChild(installBtn);
+    });
+  </script>
+</body>
+</html>
