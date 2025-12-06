@@ -27,6 +27,7 @@ self.addEventListener('fetch', event => {
   if (event.request.url.startsWith('http') === false) return;
 
   event.respondWith(
+    // محاولة الاتصال بالشبكة أولاً
     fetch(event.request)
       .then(response => {
         // تحديث الكاش تلقائيًا عند وجود اتصال
@@ -38,8 +39,25 @@ self.addEventListener('fetch', event => {
       })
       .catch(() => {
         // إذا فشل الطلب (لا إنترنت)، نعود للكاش
+        // 1. محاولة العثور على الصفحة المطلوبة تحديداً
         return caches.match(event.request)
-          .then(response => response || caches.match('./index.html'));
+          .then(response => {
+            if (response) {
+              return response;
+            }
+            // 2. إذا لم توجد، نعود للصفحة الرئيسية كخيار أخير
+            return caches.match('./index.html');
+          })
+          .catch(() => {
+             // في حالة الفشل التام، نعيد رسالة خطأ بسيطة للمستخدم
+             return new Response("<h1>عذراً، أنت غير متصل بالإنترنت</h1><p>يرجى التحقق من اتصالك بالشبكة لإعادة تحميل هذه الصفحة.</p>", {
+               status: 503,
+               statusText: "Service Unavailable",
+               headers: new Headers({
+                 "Content-Type": "text/html"
+               })
+             });
+          });
       })
   );
 });
@@ -54,7 +72,7 @@ self.addEventListener('activate', event => {
         cacheNames.map(cacheName => {
           if (!cacheWhitelist.includes(cacheName)) {
             console.log('[SW] Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
+            return caches.delete(cacheName); // حذف الكاش القديم
           }
         })
       );
