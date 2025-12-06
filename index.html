@@ -269,7 +269,8 @@
         knockoutTitle: "مرحلة خروج المغلوب — 32 فريقًا",
         roundOf32: "دور الـ 32",
         notificationsDenied: "❌ الإشعارات معطّلة. فعّلها في إعدادات المتصفح.",
-        enableNotifications: "🔔 تفعيل الإشعارات"
+        enableNotifications: "🔔 تفعيل الإشعارات",
+        installSuccess: "🎉 تم التثبيت! افتح التطبيق من الشاشة الرئيسية."
       },
       en: {
         title: "FIFA World Cup 2026 — Results & Qualification Manager",
@@ -297,7 +298,8 @@
         knockoutTitle: "Knockout Stage — 32 Teams",
         roundOf32: "Round of 32",
         notificationsDenied: "❌ Notifications disabled. Enable in browser settings.",
-        enableNotifications: "🔔 Enable Notifications"
+        enableNotifications: "🔔 Enable Notifications",
+        installSuccess: "🎉 Installed! Open the app from your home screen."
       }
     };
 
@@ -944,32 +946,62 @@
     });
 
     // ----------------------------------------------
-    // 📲 كود PWA وزر التثبيت المضاف
+    // 📲 كود PWA وزر التثبيت التفاعلي (Google-Style)
     // ----------------------------------------------
     let deferredPrompt;
+    // الحصول على عناصر النافذة الجديدة
+    const installPromptDiv = document.getElementById('installPrompt');
+    const installBtn = document.getElementById('installBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+
     window.addEventListener('beforeinstallprompt', (e) => {
+      // منع ظهور نافذة التثبيت الافتراضية للمتصفح
       e.preventDefault();
+      // حفظ الحدث لاستخدامه لاحقًا
       deferredPrompt = e;
-      // أضف زر في الواجهة
-      const installBtn = document.createElement('button');
-      installBtn.textContent = '📲 تثبيت كتطبيق';
-      installBtn.style.cssText = `
-        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-        background: #0088cc; color: white; border: none; padding: 10px 20px;
-        border-radius: 30px; font-size: 16px; cursor: pointer; z-index: 1000;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-      `;
-      installBtn.onclick = () => {
+      // إظهار نافذة التثبيت المخصصة
+      installPromptDiv.style.display = 'block';
+    });
+
+    installBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        // إظهار نافذة التثبيت الأصلية للمتصفح
         deferredPrompt.prompt();
-        deferredPrompt.userChoice.then(choice => {
-          if (choice.outcome === 'accepted') {
-            updateStatus('✅ تم التثبيت! افتح التطبيق من الشاشة الرئيسية.');
-          }
-          installBtn.remove();
-        });
-      };
-      document.body.appendChild(installBtn);
+        // انتظار استجابة المستخدم
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          console.log('✅ المستخدم وافق على التثبيت');
+           // استخدام دالة تحديث الحالة الموجودة لإظهار رسالة نجاح
+          updateStatus(t('installSuccess'));
+        }
+        // إخفاء النافذة المخصصة
+        installPromptDiv.style.display = 'none';
+        // تصفير المتغير حيث لا يمكن استخدامه مرة أخرى
+        deferredPrompt = null;
+      }
+    });
+
+    cancelBtn.addEventListener('click', () => {
+      // إخفاء النافذة عند الضغط على زر الإغلاق
+      installPromptDiv.style.display = 'none';
+      // ملاحظة: لا نقوم بتصفير deferredPrompt هنا، فقد يرغب المستخدم في التثبيت لاحقًا
     });
   </script>
+
+  <div id="installPrompt" style="display:none; position:fixed; bottom:20px; left:50%; transform:translateX(-50%); 
+    background:white; padding:12px 20px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.2);
+    z-index:10000; font-family:Segoe UI, sans-serif; direction:ltr; min-width: 300px;">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <img src="icon-192.png" alt="App Icon" width="40" height="40" style="border-radius:8px;">
+      <div style="flex-grow: 1;">
+        <div style="font-weight:bold; color:#222; font-size: 15px;">كأس العالم 2026</div>
+        <div style="font-size:13px; color:#666;">تثبيت للوصول السريع بدون إنترنت</div>
+      </div>
+      <button id="installBtn" style="background:#0055a4; color:white; border:none; padding:8px 16px; 
+        border-radius:20px; font-weight:bold; cursor:pointer; font-size:14px;">تثبيت</button>
+      <button id="cancelBtn" style="background:transparent; color:#888; border:none; font-size:24px; 
+        cursor:pointer; padding: 0 4px; line-height: 1;">&times;</button>
+    </div>
+  </div>
 </body>
 </html>
