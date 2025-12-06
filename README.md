@@ -11,7 +11,7 @@
 
 ## 📌 المطور  
 **إيهاب خفاجي** — Ehab KHAFAGY  
-📧 [ehab.khafagy@gmail.com](mailto:ehab.alforat@gmail.com)  
+📧 [ehab.alforat@gmail.com](mailto:ehab.alforat@gmail.com)  
 🔗 [GitHub Profile](https://github.com/ehabsk)
 
 ---
